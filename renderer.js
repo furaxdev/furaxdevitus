@@ -8,7 +8,7 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const FREE_MODELS = [
   'google/gemini-2.0-flash-exp:free',
   'meta-llama/llama-3.1-8b-instruct:free',
-  'mistralai/mistral-7b-instruct:free'
+  'qwen/qwen-2-7b-instruct:free'
 ];
 
 const AI_SYSTEM_PROMPT = `Tu es un assistant spécialisé dans l'organisation de notes de cours.
