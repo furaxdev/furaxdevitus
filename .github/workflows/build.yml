@@ -1,0 +1,81 @@
+name: Build macOS App
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (ex: v1.0.0)'
+        required: false
+        default: 'v1.0.0-dev'
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    name: Build macOS x64 (.dmg)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron app (macOS x64)
+        run: npm run build
+        env:
+          # Désactive la signature de code (pas de certificat Apple Developer requis)
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+          # Permet de builder sans certificat Apple
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: true
+
+      - name: List built artifacts
+        run: ls -lh dist/
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoursNotes-macOS-x64-${{ github.ref_name || inputs.version }}
+          path: |
+            dist/*.dmg
+            dist/*.zip
+          retention-days: 30
+          if-no-files-found: warn
+
+      # Publie dans une Release GitHub si déclenché par un tag
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Cours Notes ${{ github.ref_name }}
+          body: |
+            ## Cours Notes ${{ github.ref_name }}
+
+            Application de prise de notes de cours avec organisation par IA.
+
+            ### Installation (macOS Intel / x64)
+            1. Téléchargez le fichier `.dmg` ci-dessous
+            2. Ouvrez le `.dmg` et glissez l'app dans `Applications`
+            3. Premier lancement : clic droit → Ouvrir (pour contourner Gatekeeper si l'app n'est pas signée)
+
+            ### Première utilisation
+            - Cliquez sur ⚙️ pour entrer votre clé API OpenRouter (gratuite sur openrouter.ai)
+            - Tapez vos notes dans la zone de texte et cliquez "Organiser avec l'IA"
+          files: |
+            dist/*.dmg
+            dist/*.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

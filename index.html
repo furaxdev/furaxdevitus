@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; connect-src https://openrouter.ai;" />
+  <title>Cours Notes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #0f0f1a;
+      --bg-secondary: #141428;
+      --bg-tertiary: #1a1a35;
+      --bg-card: #1e1e3a;
+      --bg-input: #12122a;
+      --accent-violet: #7c3aed;
+      --accent-violet-light: #a855f7;
+      --accent-blue: #3b82f6;
+      --accent-blue-light: #60a5fa;
+      --accent-cyan: #06b6d4;
+      --accent-gradient: linear-gradient(135deg, #7c3aed, #3b82f6);
+      --accent-gradient-hover: linear-gradient(135deg, #9333ea, #2563eb);
+      --text-primary: #e8e8f5;
+      --text-secondary: #a0a0c0;
+      --text-muted: #6060a0;
+      --border: #2a2a4a;
+      --border-focus: #7c3aed;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --sidebar-width: 260px;
+      --header-height: 52px;
+      --radius: 8px;
+      --radius-lg: 12px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Layout ─────────────────────────────────────── */
+    #app {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr;
+      grid-template-rows: var(--header-height) 1fr;
+      height: 100vh;
+    }
+
+    /* ─── Title bar / drag region ─────────────────────── */
+    #titlebar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      padding: 0 16px 0 80px; /* 80px leaves room for macOS traffic lights */
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      -webkit-app-region: drag;
+      gap: 12px;
+      user-select: none;
+    }
+
+    #titlebar .app-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    #titlebar .app-logo svg { flex-shrink: 0; }
+
+    #titlebar h1 {
+      font-size: 14px;
+      font-weight: 600;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #titlebar .meta-fields {
+      display: flex;
+      gap: 8px;
+      margin-left: auto;
+      -webkit-app-region: no-drag;
+      align-items: center;
+    }
+
+    .meta-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 5px 10px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .meta-input:focus { border-color: var(--border-focus); }
+    #subject-input { width: 200px; }
+    #date-input { width: 130px; color-scheme: dark; }
+
+    /* ─── Sidebar ─────────────────────────────────────── */
+    #sidebar {
+      background: var(--bg-secondary);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-header span {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+    }
+
+    .icon-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      transition: color .2s, background .2s;
+    }
+
+    .icon-btn:hover {
+      color: var(--accent-violet-light);
+      background: rgba(124,58,237,.12);
+    }
+
+    .sidebar-search {
+      padding: 10px 10px 6px;
+    }
+
+    .sidebar-search input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      padding: 6px 10px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .sidebar-search input:focus { border-color: var(--border-focus); }
+
+    #notes-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    #notes-list::-webkit-scrollbar { width: 4px; }
+    #notes-list::-webkit-scrollbar-track { background: transparent; }
+    #notes-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .note-item {
+      padding: 9px 10px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background .15s;
+      position: relative;
+      border: 1px solid transparent;
+    }
+
+    .note-item:hover { background: var(--bg-tertiary); }
+
+    .note-item.active {
+      background: rgba(124,58,237,.12);
+      border-color: rgba(124,58,237,.3);
+    }
+
+    .note-item .note-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 200px;
+    }
+
+    .note-item .note-date {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .note-item .note-delete {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--danger);
+      cursor: pointer;
+      padding: 2px;
+      border-radius: 3px;
+      display: flex;
+    }
+
+    .note-item:hover .note-delete { opacity: 1; }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 8px;
+      color: var(--text-muted);
+      font-size: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    /* ─── Main editor area ───────────────────────────── */
+    #main {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-primary);
+    }
+
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+      flex-wrap: wrap;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 14px;
+      border-radius: var(--radius);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: opacity .15s, transform .1s;
+      white-space: nowrap;
+    }
+
+    .btn:active { transform: scale(.97); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .btn-primary {
+      background: var(--accent-gradient);
+      color: #fff;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: var(--accent-gradient-hover); }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      border-color: var(--accent-violet);
+      color: var(--accent-violet-light);
+    }
+
+    .btn-success {
+      background: rgba(34,197,94,.15);
+      color: var(--success);
+      border: 1px solid rgba(34,197,94,.3);
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: rgba(34,197,94,.25);
+    }
+
+    .toolbar-spacer { flex: 1; }
+
+    .status-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      display: none;
+    }
+
+    .status-badge.loading {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(124,58,237,.15);
+      color: var(--accent-violet-light);
+      border: 1px solid rgba(124,58,237,.3);
+    }
+
+    .status-badge.success {
+      display: inline-flex;
+      background: rgba(34,197,94,.1);
+      color: var(--success);
+      border: 1px solid rgba(34,197,94,.25);
+    }
+
+    .status-badge.error {
+      display: inline-flex;
+      background: rgba(239,68,68,.1);
+      color: var(--danger);
+      border: 1px solid rgba(239,68,68,.25);
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { animation: spin .7s linear infinite; display: inline-block; }
+
+    /* ─── Editor panes ───────────────────────────────── */
+    #editor-area {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #editor-area.single-pane {
+      grid-template-columns: 1fr;
+    }
+
+    .pane {
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--text-muted);
+      padding: 8px 16px 4px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-secondary);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      line-height: 1.8;
+      padding: 20px;
+      resize: none;
+      outline: none;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+    textarea::-webkit-scrollbar { width: 4px; }
+    textarea::-webkit-scrollbar-track { background: transparent; }
+    textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Result pane with rendered markdown-like content */
+    #result-pane { display: none; }
+    #result-pane.visible { display: flex; }
+
+    #result-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.8;
+      color: var(--text-primary);
+    }
+
+    #result-content::-webkit-scrollbar { width: 4px; }
+    #result-content::-webkit-scrollbar-track { background: transparent; }
+    #result-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* Rendered markdown styles */
+    #result-content h1 {
+      font-size: 20px;
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin: 0 0 16px;
+    }
+
+    #result-content h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--accent-violet-light);
+      margin: 24px 0 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(124,58,237,.25);
+    }
+
+    #result-content h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-blue-light);
+      margin: 16px 0 8px;
+    }
+
+    #result-content p { margin: 0 0 12px; }
+
+    #result-content strong {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    #result-content em { color: var(--accent-violet-light); font-style: italic; }
+
+    #result-content ul, #result-content ol {
+      margin: 0 0 12px 20px;
+    }
+
+    #result-content li { margin-bottom: 4px; }
+
+    #result-content blockquote {
+      border-left: 3px solid var(--accent-violet);
+      padding: 8px 16px;
+      margin: 0 0 12px;
+      background: rgba(124,58,237,.08);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    #result-content code {
+      background: var(--bg-card);
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    #result-content pre {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin: 0 0 12px;
+      overflow-x: auto;
+    }
+
+    #result-content pre code {
+      background: none;
+      padding: 0;
+      color: var(--text-primary);
+    }
+
+    /* ─── Settings panel ─────────────────────────────── */
+    #settings-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #settings-overlay.visible { display: flex; }
+
+    #settings-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      width: 460px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+    }
+
+    #settings-panel h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 9px 12px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    .form-group input:focus { border-color: var(--border-focus); }
+
+    .form-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    .panel-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ─── Toast ──────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 200;
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+      max-width: 320px;
+      transition: opacity .3s;
+    }
+
+    #toast.visible { display: flex; }
+    #toast.success { border-color: rgba(34,197,94,.4); }
+    #toast.error { border-color: rgba(239,68,68,.4); }
+    #toast.info { border-color: rgba(124,58,237,.4); }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- ── Title bar ── -->
+    <header id="titlebar">
+      <div class="app-logo">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="url(#grad1)"/>
+          <path d="M2 17l10 5 10-5" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round"/>
+          <path d="M2 12l10 5 10-5" stroke="url(#grad1)" stroke-width="2" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#7c3aed"/>
+              <stop offset="100%" style="stop-color:#3b82f6"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <h1>Cours Notes</h1>
+      </div>
+      <div class="meta-fields">
+        <input type="text" id="subject-input" class="meta-input" placeholder="Matière / Titre du cours…" />
+        <input type="date" id="date-input" class="meta-input" />
+        <button class="icon-btn" id="settings-btn" title="Paramètres API">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ── Sidebar ── -->
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <span>Mes Notes</span>
+        <button class="icon-btn" id="open-folder-btn" title="Ouvrir le dossier notes">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sidebar-search">
+        <input type="text" id="search-input" placeholder="Rechercher…" />
+      </div>
+      <div id="notes-list">
+        <div class="empty-state">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity=".4">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Aucune note sauvegardée</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main editor ── -->
+    <main id="main">
+      <div id="toolbar">
+        <button class="btn btn-primary" id="ai-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+          </svg>
+          Organiser avec l'IA
+        </button>
+        <button class="btn btn-success" id="save-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/>
+            <polyline points="17 21 17 13 7 13 7 21"/>
+            <polyline points="7 3 7 8 15 8"/>
+          </svg>
+          Sauvegarder
+        </button>
+        <button class="btn btn-secondary" id="new-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Nouvelle note
+        </button>
+        <button class="btn btn-secondary" id="toggle-pane-btn" style="display:none">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>
+          </svg>
+          Vue double
+        </button>
+        <div class="toolbar-spacer"></div>
+        <div id="status-badge" class="status-badge"></div>
+      </div>
+
+      <div id="editor-area">
+        <div class="pane" id="input-pane">
+          <div class="pane-label">Brouillon — tapez vos notes ici</div>
+          <textarea id="notes-input" placeholder="Tapez vos notes de cours ici…&#10;&#10;Vous pouvez écrire librement, l'IA se chargera de tout organiser proprement.&#10;&#10;Exemples :&#10;- déf : photosynthèse = conversion lumière → énergie chimique&#10;- formule ATP&#10;- rappel : exam le 15"></textarea>
+        </div>
+        <div class="pane" id="result-pane">
+          <div class="pane-label">Résultat organisé par l'IA</div>
+          <div id="result-content"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ── Settings overlay ── -->
+  <div id="settings-overlay">
+    <div id="settings-panel">
+      <h2>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="url(#gs)" stroke-width="2">
+          <defs>
+            <linearGradient id="gs" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#7c3aed"/>
+              <stop offset="100%" style="stop-color:#3b82f6"/>
+            </linearGradient>
+          </defs>
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/>
+        </svg>
+        Paramètres
+      </h2>
+      <div class="form-group">
+        <label>Clé API OpenRouter</label>
+        <input type="password" id="api-key-input" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false" />
+        <p class="form-hint">
+          Obtenez votre clé gratuite sur <strong>openrouter.ai</strong>. Elle est stockée localement et chiffrée sur cet appareil — jamais transmise ailleurs qu'à OpenRouter.
+        </p>
+      </div>
+      <div class="panel-actions">
+        <button class="btn btn-secondary" id="settings-cancel">Annuler</button>
+        <button class="btn btn-primary" id="settings-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Toast ── -->
+  <div id="toast"></div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
