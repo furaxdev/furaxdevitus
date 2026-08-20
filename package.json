@@ -1,0 +1,55 @@
+{
+  "name": "klarity",
+  "version": "1.0.0",
+  "description": "Klarity — Application de prise de notes de cours avec IA",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder build --mac --x64",
+    "build:linux": "electron-builder build --linux"
+  },
+  "build": {
+    "appId": "com.klarity.app",
+    "productName": "Klarity",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "public.app-category.education",
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Education"
+    },
+    "publish": null
+  },
+  "keywords": ["electron", "notes", "ai", "cours"],
+  "author": "b22041702@gmail.com",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "electron-store": "^8.1.0"
+  }
+}
