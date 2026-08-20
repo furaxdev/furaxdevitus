@@ -365,12 +365,135 @@
       padding: 24px 28px;
       resize: none;
       outline: none;
+      display: block;
+      width: 100%;
     }
 
     textarea::placeholder { color: var(--text-muted); }
     textarea::-webkit-scrollbar { width: 4px; }
     textarea::-webkit-scrollbar-track { background: transparent; }
     textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ─── Tab bar ────────────────────────────────────── */
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      padding: 8px 16px 0;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 7px 20px;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: var(--radius) var(--radius) 0 0;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+
+    .tab-btn:hover { color: var(--text-secondary); }
+
+    .tab-btn.active {
+      color: var(--accent-violet-light);
+      border-bottom-color: var(--accent-violet);
+    }
+
+    /* ─── Tab panes ──────────────────────────────────── */
+    #pane-txt {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #pane-md {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── Markdown sub-tabs ───────────────────────────── */
+    .subtab-bar {
+      display: flex;
+      padding: 5px 16px 0;
+      background: var(--bg-primary);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .subtab-btn {
+      padding: 5px 14px;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color .15s, border-color .15s;
+    }
+
+    .subtab-btn:hover { color: var(--text-secondary); }
+
+    .subtab-btn.active {
+      color: var(--accent-blue-light);
+      border-bottom-color: var(--accent-blue);
+    }
+
+    /* ─── Markdown preview ───────────────────────────── */
+    #md-preview {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px;
+      display: none;
+      line-height: 1.8;
+    }
+
+    #md-preview h1 { font-size: 22px; font-weight: 700; margin-bottom: 16px; color: var(--text-primary); }
+    #md-preview h2 { font-size: 17px; font-weight: 600; margin: 20px 0 10px; color: var(--text-primary); border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    #md-preview h3 { font-size: 14px; font-weight: 600; margin: 16px 0 8px; color: var(--accent-violet-light); }
+    #md-preview p { color: var(--text-secondary); margin-bottom: 10px; }
+    #md-preview ul, #md-preview ol { padding-left: 22px; color: var(--text-secondary); margin-bottom: 10px; }
+    #md-preview li { margin-bottom: 4px; }
+    #md-preview blockquote {
+      border-left: 3px solid var(--accent-violet);
+      padding: 10px 16px;
+      margin: 14px 0;
+      background: rgba(124,58,237,.08);
+      border-radius: 0 6px 6px 0;
+      color: var(--text-secondary);
+    }
+    #md-preview code {
+      background: var(--bg-card);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent-cyan);
+    }
+    #md-preview pre {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    #md-preview pre code { background: none; padding: 0; color: var(--text-secondary); }
+    #md-preview hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+    #md-preview strong { color: var(--text-primary); font-weight: 600; }
+    #md-preview em { font-style: italic; }
+    #md-preview::-webkit-scrollbar { width: 4px; }
+    #md-preview::-webkit-scrollbar-track { background: transparent; }
+    #md-preview::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
     /* Undo button */
     .btn-undo {
@@ -564,7 +687,26 @@
       </div>
 
       <div id="editor-area">
-        <textarea id="notes-input" placeholder="Tapez vos notes de cours ici…&#10;&#10;Écrivez librement, l'IA organisera tout.&#10;&#10;Ex :&#10;- déf : photosynthèse = lumière → énergie chimique&#10;- rappel : exam le 15"></textarea>
+        <!-- Main tabs -->
+        <div class="tab-bar">
+          <button class="tab-btn active" id="tab-txt">Texte</button>
+          <button class="tab-btn" id="tab-md">Markdown</button>
+        </div>
+
+        <!-- Text pane -->
+        <div id="pane-txt">
+          <textarea id="txt-input" placeholder="Tapez vos notes de cours ici…&#10;&#10;Écrivez librement, l'IA organisera tout.&#10;&#10;Ex :&#10;- déf : photosynthèse = lumière → énergie chimique&#10;- rappel : exam le 15"></textarea>
+        </div>
+
+        <!-- Markdown pane -->
+        <div id="pane-md">
+          <div class="subtab-bar">
+            <button class="subtab-btn active" id="subtab-edit">Éditer</button>
+            <button class="subtab-btn" id="subtab-preview">Aperçu</button>
+          </div>
+          <textarea id="md-input" placeholder="Tapez du Markdown ici… ou laissez l'IA générer un document structuré."></textarea>
+          <div id="md-preview"></div>
+        </div>
       </div>
     </main>
   </div>
