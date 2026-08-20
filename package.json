@@ -1,7 +1,7 @@
 {
-  "name": "cours-notes",
+  "name": "klarity",
   "version": "1.0.0",
-  "description": "Application de prise de notes de cours avec IA",
+  "description": "Klarity — Application de prise de notes de cours avec IA",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,8 +9,8 @@
     "build:linux": "electron-builder build --linux"
   },
   "build": {
-    "appId": "com.coursnotes.app",
-    "productName": "Cours Notes",
+    "appId": "com.klarity.app",
+    "productName": "Klarity",
     "directories": {
       "output": "dist"
     },

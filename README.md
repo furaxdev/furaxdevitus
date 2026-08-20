@@ -1,4 +1,4 @@
-# Cours Notes
+# Klarity
 
 Application de bureau Electron pour prendre des notes de cours et les organiser avec l'IA (OpenRouter).
 
@@ -48,7 +48,7 @@ Cela déclenche le workflow `build.yml`, qui :
 ### Installation
 
 1. Ouvrez le `.dmg` téléchargé
-2. Glissez **Cours Notes.app** dans votre dossier `Applications`
+2. Glissez **Klarity.app** dans votre dossier `Applications`
 3. Premier lancement sans certificat Apple Developer :
    - **Clic droit** sur l'app → **Ouvrir** → confirmez dans la boîte de dialogue
    - (Gatekeeper bloque les apps non signées au double-clic simple)

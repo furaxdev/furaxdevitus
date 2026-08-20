@@ -262,8 +262,8 @@ async function callOpenRouter(apiKey, model, userMessage) {
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://cours-notes-app.local',
-      'X-Title': 'Cours Notes'
+      'HTTP-Referer': 'https://klarity-app.local',
+      'X-Title': 'Klarity'
     },
     body: JSON.stringify({
       model,

@@ -58,9 +58,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          name: Cours Notes ${{ github.ref_name }}
+          name: Klarity ${{ github.ref_name }}
           body: |
-            ## Cours Notes ${{ github.ref_name }}
+            ## Klarity ${{ github.ref_name }}
 
             Application de prise de notes de cours avec organisation par IA.
 

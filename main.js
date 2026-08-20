@@ -8,7 +8,7 @@ let store;
 async function initStore() {
   const Store = (await import('electron-store')).default;
   store = new Store({
-    encryptionKey: 'cours-notes-secure-key-2024',
+    encryptionKey: 'klarity-secure-key-2024',
     schema: {
       apiKey: { type: 'string', default: '' },
       windowBounds: {
