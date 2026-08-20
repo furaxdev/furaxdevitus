@@ -1,97 +1,113 @@
 'use strict';
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-// Free models with fallback order
 const FREE_MODELS = [
   'openrouter/auto',
   'google/gemini-2.0-flash-exp:free',
   'meta-llama/llama-3.1-8b-instruct:free'
 ];
 
-const AI_SYSTEM_PROMPT = `Tu es un assistant spécialisé dans l'organisation de notes de cours.
+const AI_SYSTEM_PROMPT = `Tu es un assistant de révision académique expert. Tu reçois des notes brutes prises rapidement pendant un cours — abréviations, phrases incomplètes, schémas en mots.
 
-Ta tâche : prendre des notes brutes tapées rapidement pendant un cours et les transformer en document structuré et lisible.
+MISSION : transformer ces notes en un document Markdown soigné, structuré et prêt à réviser.
 
-Instructions strictes de formatage (Markdown) :
-1. Commence par un **résumé** en 2-3 phrases maximum (section "## Résumé")
-2. Organise les notes en sections avec des titres clairs (## et ###)
-3. Mets en **gras** tous les termes, concepts, formules et mots-clés importants
-4. Reformule pour la clarté mais préserve le sens exact
-5. Utilise des listes à puces quand c'est pertinent
-6. Si tu vois des formules, conserve-les telles quelles
-7. Ajoute une section "## Points clés à retenir" à la fin avec les 3-5 concepts essentiels
+RÈGLES ABSOLUES :
+- Ne perds AUCUNE information — reformule, n'invente jamais
+- Corrige l'orthographe et la grammaire
+- Développe les abréviations si le contexte est clair (ex : "déf" → "Définition")
+- N'ajoute aucun contenu absent des notes
 
-Réponds UNIQUEMENT en Markdown. Commence directement par le titre principal (#).`;
+FORMAT DE SORTIE (respecte exactement cet ordre) :
 
-// ─── State ────────────────────────────────────────────────────────────────────
+# [Titre du cours ou sujet principal]
 
-let allNotes = [];
+> **Résumé** : [2-3 phrases qui capturent l'essentiel]
+
+## [Titre de section 1]
+[Contenu clair, en paragraphes ou listes à puces selon ce qui est le plus lisible]
+
+## [Titre de section 2]
+...
+
+---
+### Points clés à retenir
+- **[Concept 1]** : explication courte
+- **[Concept 2]** : explication courte
+
+STYLE :
+- **Gras** sur tous les termes techniques, définitions, formules, concepts importants
+- Listes à puces pour les énumérations
+- Blocs de code (\`\`\`) pour les formules mathématiques ou le code
+- Titres de sections descriptifs, jamais génériques ("Partie 1", "Introduction")
+
+Réponds UNIQUEMENT en Markdown pur. Pas de préambule, pas de commentaire méta.`;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+
+let allNotes      = [];
 let activeNoteFile = null;
-let organisedMarkdown = '';
+let rawBeforeAI   = null; // snapshot before AI rewrites the textarea
 
 // ─── DOM refs ────────────────────────────────────────────────────────────────
 
 const $ = (id) => document.getElementById(id);
 
-const subjectInput   = $('subject-input');
-const dateInput      = $('date-input');
-const notesInput     = $('notes-input');
-const aiBtn          = $('ai-btn');
-const saveBtn        = $('save-btn');
-const newBtn         = $('new-btn');
-const togglePaneBtn  = $('toggle-pane-btn');
-const notesList      = $('notes-list');
-const searchInput    = $('search-input');
-const statusBadge    = $('status-badge');
-const resultPane     = $('result-pane');
-const resultContent  = $('result-content');
-const editorArea     = $('editor-area');
+const subjectInput    = $('subject-input');
+const dateInput       = $('date-input');
+const notesInput      = $('notes-input');
+const aiBtn           = $('ai-btn');
+const undoBtn         = $('undo-btn');
+const saveBtn         = $('save-btn');
+const newBtn          = $('new-btn');
+const notesList       = $('notes-list');
+const searchInput     = $('search-input');
+const statusBadge     = $('status-badge');
 const settingsOverlay = $('settings-overlay');
-const apiKeyInput    = $('api-key-input');
-const toast          = $('toast');
+const apiKeyInput     = $('api-key-input');
+const toast           = $('toast');
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ─── Init ────────────────────────────────────────────────────────────────────
 
 async function init() {
-  // Set today's date
   dateInput.value = new Date().toISOString().split('T')[0];
 
-  // Load API key into settings panel (but not showing it yet)
   const key = await window.electronAPI.getApiKey();
   apiKeyInput.value = key;
 
-  // Load saved notes
   await refreshNotesList();
 
-  // Wire up events
   aiBtn.addEventListener('click', handleAI);
+  undoBtn.addEventListener('click', handleUndo);
   saveBtn.addEventListener('click', handleSave);
   newBtn.addEventListener('click', handleNew);
-  togglePaneBtn.addEventListener('click', togglePane);
   searchInput.addEventListener('input', filterNotes);
   $('settings-btn').addEventListener('click', openSettings);
   $('settings-cancel').addEventListener('click', closeSettings);
   $('settings-save').addEventListener('click', saveSettings);
   $('open-folder-btn').addEventListener('click', () => window.electronAPI.showNotesFolder());
 
-  // Close overlay on backdrop click
   settingsOverlay.addEventListener('click', (e) => {
     if (e.target === settingsOverlay) closeSettings();
   });
 
-  // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 's') { e.preventDefault(); handleSave(); }
     if ((e.metaKey || e.ctrlKey) && e.key === 'n') { e.preventDefault(); handleNew(); }
     if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); }
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z' && rawBeforeAI !== null) {
+      e.preventDefault(); handleUndo();
+    }
     if (e.key === 'Escape') closeSettings();
+  });
+
+  // Hide undo button when user manually edits after AI
+  notesInput.addEventListener('input', () => {
+    if (rawBeforeAI !== null) hideUndo();
   });
 }
 
-// ─── Notes list ───────────────────────────────────────────────────────────────
+// ─── Notes list ──────────────────────────────────────────────────────────────
 
 async function refreshNotesList() {
   allNotes = await window.electronAPI.listNotes();
@@ -116,7 +132,7 @@ function renderNotesList(notes) {
     const date = new Date(note.mtime).toLocaleDateString('fr-FR', {
       day: '2-digit', month: 'short', year: 'numeric'
     });
-    const isActive = activeNoteFile && activeNoteFile === note.path;
+    const isActive = activeNoteFile === note.path;
     return `
       <div class="note-item ${isActive ? 'active' : ''}" data-path="${escHtml(note.path)}">
         <div class="note-title">${escHtml(label)}</div>
@@ -131,7 +147,6 @@ function renderNotesList(notes) {
       </div>`;
   }).join('');
 
-  // Click handlers
   notesList.querySelectorAll('.note-item').forEach(item => {
     item.addEventListener('click', (e) => {
       if (e.target.closest('.note-delete')) return;
@@ -149,8 +164,7 @@ function renderNotesList(notes) {
 
 function filterNotes() {
   const q = searchInput.value.toLowerCase();
-  const filtered = allNotes.filter(n => n.name.toLowerCase().includes(q));
-  renderNotesList(filtered);
+  renderNotesList(allNotes.filter(n => n.name.toLowerCase().includes(q)));
 }
 
 async function openNote(filePath) {
@@ -158,18 +172,15 @@ async function openNote(filePath) {
   if (content === null) { showToast('Impossible de lire la note.', 'error'); return; }
 
   activeNoteFile = filePath;
-  notesInput.value = '';
-  organisedMarkdown = content;
-  renderMarkdown(content);
-  resultPane.classList.add('visible');
-  editorArea.classList.remove('single-pane');
-  togglePaneBtn.style.display = 'inline-flex';
+  rawBeforeAI    = null;
+  hideUndo();
+  notesInput.value = content;
 
-  // Try to parse subject / date from filename
   const name = filePath.split('/').pop().replace('.md', '').replace(/_/g, ' ');
   subjectInput.value = name;
 
-  renderNotesList(allNotes); // refresh active state
+  setStatus('', '');
+  renderNotesList(allNotes);
   showToast(`Note ouverte : ${name}`, 'info');
 }
 
@@ -178,9 +189,7 @@ async function deleteNote(filePath) {
   if (!confirm(`Supprimer « ${name} » ?`)) return;
   const ok = await window.electronAPI.deleteNote(filePath);
   if (ok) {
-    if (activeNoteFile === filePath) {
-      handleNew();
-    }
+    if (activeNoteFile === filePath) handleNew();
     await refreshNotesList();
     showToast('Note supprimée.', 'success');
   } else {
@@ -188,24 +197,21 @@ async function deleteNote(filePath) {
   }
 }
 
-// ─── New note ─────────────────────────────────────────────────────────────────
+// ─── New note ────────────────────────────────────────────────────────────────
 
 function handleNew() {
   activeNoteFile = null;
-  notesInput.value = '';
-  organisedMarkdown = '';
-  resultContent.innerHTML = '';
-  resultPane.classList.remove('visible');
-  editorArea.classList.add('single-pane');
-  togglePaneBtn.style.display = 'none';
+  rawBeforeAI    = null;
+  hideUndo();
+  notesInput.value  = '';
   subjectInput.value = '';
-  dateInput.value = new Date().toISOString().split('T')[0];
+  dateInput.value   = new Date().toISOString().split('T')[0];
   setStatus('', '');
   renderNotesList(allNotes);
   notesInput.focus();
 }
 
-// ─── AI organisation ──────────────────────────────────────────────────────────
+// ─── AI organisation ─────────────────────────────────────────────────────────
 
 async function handleAI() {
   const raw = notesInput.value.trim();
@@ -219,29 +225,27 @@ async function handleAI() {
   }
 
   const subject = subjectInput.value.trim();
-  const date = dateInput.value;
-  const contextLine = subject || date
-    ? `Matière : ${subject || '(non précisée)'}  |  Date : ${date || '(non précisée)'}`
+  const date    = dateInput.value;
+  const context = (subject || date)
+    ? `Matière : ${subject || '(non précisée)'}  |  Date : ${date || '(non précisée)'}\n\n---\n\n`
     : '';
 
-  const userMessage = contextLine
-    ? `${contextLine}\n\n---\n\n${raw}`
-    : raw;
-
   aiBtn.disabled = true;
-  setStatus('loading', '⚡ Traitement IA…');
+  setStatus('loading', '⚡ Organisation en cours…');
 
   let lastError;
   for (const model of FREE_MODELS) {
     try {
-      const result = await callOpenRouter(apiKey, model, userMessage);
-      organisedMarkdown = result;
-      renderMarkdown(result);
-      resultPane.classList.add('visible');
-      editorArea.classList.remove('single-pane');
-      togglePaneBtn.style.display = 'inline-flex';
-      setStatus('success', `✓ Organisé (${model.split('/')[1].split(':')[0]})`);
-      showToast('Notes organisées avec succès !', 'success');
+      const result = await callOpenRouter(apiKey, model, context + raw);
+
+      // Save snapshot for undo, then replace textarea content directly
+      rawBeforeAI = raw;
+      notesInput.value = result;
+      showUndo();
+
+      const modelLabel = model === 'openrouter/auto' ? 'auto' : model.split('/')[1]?.split(':')[0] || model;
+      setStatus('success', `✓ Organisé · ${modelLabel}`);
+      showToast('Notes organisées !', 'success');
       aiBtn.disabled = false;
       return;
     } catch (err) {
@@ -250,7 +254,6 @@ async function handleAI() {
     }
   }
 
-  // All models failed
   aiBtn.disabled = false;
   setStatus('error', '✗ Erreur API');
   showToast(`Erreur : ${lastError?.message || 'Tous les modèles ont échoué'}`, 'error');
@@ -269,10 +272,10 @@ async function callOpenRouter(apiKey, model, userMessage) {
       model,
       messages: [
         { role: 'system', content: AI_SYSTEM_PROMPT },
-        { role: 'user', content: userMessage }
+        { role: 'user',   content: userMessage }
       ],
       max_tokens: 2048,
-      temperature: 0.3
+      temperature: 0.25
     })
   });
 
@@ -281,29 +284,37 @@ async function callOpenRouter(apiKey, model, userMessage) {
     throw new Error(`HTTP ${resp.status}: ${errText}`);
   }
 
-  const data = await resp.json();
+  const data    = await resp.json();
   const content = data?.choices?.[0]?.message?.content;
   if (!content) throw new Error('Réponse vide de l\'API');
   return content;
 }
 
-// ─── Save note ────────────────────────────────────────────────────────────────
+// ─── Undo AI ─────────────────────────────────────────────────────────────────
+
+function handleUndo() {
+  if (rawBeforeAI === null) return;
+  notesInput.value = rawBeforeAI;
+  rawBeforeAI = null;
+  hideUndo();
+  setStatus('', '');
+  showToast('Brouillon restauré.', 'info');
+}
+
+function showUndo() { undoBtn.style.display = 'inline-flex'; }
+function hideUndo() { undoBtn.style.display = 'none'; }
+
+// ─── Save ────────────────────────────────────────────────────────────────────
 
 async function handleSave() {
+  const content = notesInput.value.trim();
+  if (!content) { showToast('Rien à sauvegarder !', 'info'); return; }
+
   const subject = subjectInput.value.trim();
-  const date = dateInput.value || new Date().toISOString().split('T')[0];
-  const contentToSave = organisedMarkdown || notesInput.value.trim();
+  const date    = dateInput.value || new Date().toISOString().split('T')[0];
+  const base    = subject ? `${date}_${subject}` : `${date}_note`;
 
-  if (!contentToSave) { showToast('Rien à sauvegarder !', 'info'); return; }
-
-  const filenameBase = subject
-    ? `${date}_${subject}`
-    : `${date}_note`;
-
-  const { success, name } = await window.electronAPI.saveNote({
-    filename: filenameBase,
-    content: contentToSave
-  });
+  const { success, name } = await window.electronAPI.saveNote({ filename: base, content });
 
   if (success) {
     await refreshNotesList();
@@ -313,66 +324,7 @@ async function handleSave() {
   }
 }
 
-// ─── Toggle pane ──────────────────────────────────────────────────────────────
-
-function togglePane() {
-  if (editorArea.classList.contains('single-pane')) {
-    editorArea.classList.remove('single-pane');
-  } else {
-    editorArea.classList.add('single-pane');
-  }
-}
-
-// ─── Markdown renderer ────────────────────────────────────────────────────────
-
-function renderMarkdown(md) {
-  // Simple but functional Markdown → HTML renderer
-  let html = md
-    // Escape HTML first
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    // Code blocks (must be before inline code)
-    .replace(/```[\s\S]*?```/g, (m) => {
-      const inner = m.replace(/^```\w*\n?/, '').replace(/```$/, '');
-      return `<pre><code>${inner}</code></pre>`;
-    })
-    // Headers
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/_(.+?)_/g, '<em>$1</em>')
-    // Inline code
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    // Blockquote
-    .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-    // Unordered list items
-    .replace(/^[-*] (.+)$/gm, '<li>$1</li>')
-    // Ordered list items
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr style="border-color:var(--border);margin:16px 0">')
-    // Paragraphs: double newline → paragraph break
-    .replace(/\n\n/g, '</p><p>')
-    // Single newlines
-    .replace(/\n/g, '<br>');
-
-  // Wrap loose li in ul
-  html = html.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
-
-  // Wrap in paragraph if not starting with a block element
-  if (!/^<(h[1-6]|ul|ol|blockquote|pre|hr)/.test(html)) {
-    html = `<p>${html}</p>`;
-  }
-
-  resultContent.innerHTML = html;
-}
-
-// ─── Settings ─────────────────────────────────────────────────────────────────
+// ─── Settings ────────────────────────────────────────────────────────────────
 
 function openSettings() {
   window.electronAPI.getApiKey().then(key => {
@@ -382,67 +334,50 @@ function openSettings() {
   });
 }
 
-function closeSettings() {
-  settingsOverlay.classList.remove('visible');
-}
+function closeSettings() { settingsOverlay.classList.remove('visible'); }
 
 async function saveSettings() {
-  const key = apiKeyInput.value.trim();
-  await window.electronAPI.saveApiKey(key);
+  await window.electronAPI.saveApiKey(apiKeyInput.value.trim());
   closeSettings();
   showToast('Clé API enregistrée.', 'success');
 }
 
-// ─── Status badge ─────────────────────────────────────────────────────────────
+// ─── Status badge ────────────────────────────────────────────────────────────
 
 function setStatus(type, text) {
   statusBadge.className = 'status-badge';
   if (!type) return;
   statusBadge.classList.add(type);
-
-  if (type === 'loading') {
-    statusBadge.innerHTML = `<span class="spinner">⚡</span> ${escHtml(text)}`;
-  } else {
-    statusBadge.textContent = text;
-  }
+  statusBadge.innerHTML = type === 'loading'
+    ? `<span class="spinner">⚡</span> ${escHtml(text)}`
+    : escHtml(text);
 }
 
-// ─── Toast ────────────────────────────────────────────────────────────────────
+// ─── Toast ───────────────────────────────────────────────────────────────────
 
 let toastTimer;
 function showToast(message, type = 'info') {
   clearTimeout(toastTimer);
-  const icons = {
-    success: '✓',
-    error: '✗',
-    info: 'ℹ'
-  };
-  toast.className = `status-badge visible ${type}`;
+  const icons = { success: '✓', error: '✗', info: 'ℹ' };
+  const borderColor = type === 'success' ? 'rgba(34,197,94,.4)' : type === 'error' ? 'rgba(239,68,68,.4)' : 'rgba(124,58,237,.4)';
   toast.style.cssText = `
-    position: fixed; bottom: 24px; right: 24px;
-    background: var(--bg-card); border: 1px solid;
-    border-radius: var(--radius); padding: 12px 16px;
-    font-size: 13px; display: flex; align-items: center;
-    gap: 8px; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.4);
-    max-width: 360px; color: var(--text-primary);
-    border-color: ${type === 'success' ? 'rgba(34,197,94,.4)' : type === 'error' ? 'rgba(239,68,68,.4)' : 'rgba(124,58,237,.4)'};
+    position:fixed;bottom:24px;right:24px;
+    background:var(--bg-card);border:1px solid ${borderColor};
+    border-radius:var(--radius);padding:12px 16px;
+    font-size:13px;display:flex;align-items:center;
+    gap:8px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.4);
+    max-width:360px;color:var(--text-primary);
   `;
   toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span> ${escHtml(message)}`;
-  toast.style.display = 'flex';
-
   toastTimer = setTimeout(() => { toast.style.display = 'none'; }, 3500);
 }
 
-// ─── Utility ──────────────────────────────────────────────────────────────────
+// ─── Utility ─────────────────────────────────────────────────────────────────
 
 function escHtml(str) {
   return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// ─── Boot ─────────────────────────────────────────────────────────────────────
 
 init();

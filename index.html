@@ -346,36 +346,12 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner { animation: spin .7s linear infinite; display: inline-block; }
 
-    /* ─── Editor panes ───────────────────────────────── */
+    /* ─── Editor area ───────────────────────────────── */
     #editor-area {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1px;
-      background: var(--border);
       flex: 1;
-      overflow: hidden;
-    }
-
-    #editor-area.single-pane {
-      grid-template-columns: 1fr;
-    }
-
-    .pane {
-      background: var(--bg-primary);
       display: flex;
       flex-direction: column;
       overflow: hidden;
-    }
-
-    .pane-label {
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      color: var(--text-muted);
-      padding: 8px 16px 4px;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-secondary);
     }
 
     textarea {
@@ -386,7 +362,7 @@
       font-family: 'JetBrains Mono', monospace;
       font-size: 14px;
       line-height: 1.8;
-      padding: 20px;
+      padding: 24px 28px;
       resize: none;
       outline: none;
     }
@@ -396,99 +372,13 @@
     textarea::-webkit-scrollbar-track { background: transparent; }
     textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
 
-    /* Result pane with rendered markdown-like content */
-    #result-pane { display: none; }
-    #result-pane.visible { display: flex; }
-
-    #result-content {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      font-family: 'Inter', sans-serif;
-      font-size: 14px;
-      line-height: 1.8;
-      color: var(--text-primary);
+    /* Undo button */
+    .btn-undo {
+      background: rgba(245,158,11,.1);
+      color: var(--warning);
+      border: 1px solid rgba(245,158,11,.3);
     }
-
-    #result-content::-webkit-scrollbar { width: 4px; }
-    #result-content::-webkit-scrollbar-track { background: transparent; }
-    #result-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-    /* Rendered markdown styles */
-    #result-content h1 {
-      font-size: 20px;
-      font-weight: 700;
-      background: var(--accent-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin: 0 0 16px;
-    }
-
-    #result-content h2 {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--accent-violet-light);
-      margin: 24px 0 10px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid rgba(124,58,237,.25);
-    }
-
-    #result-content h3 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--accent-blue-light);
-      margin: 16px 0 8px;
-    }
-
-    #result-content p { margin: 0 0 12px; }
-
-    #result-content strong {
-      color: var(--accent-cyan);
-      font-weight: 600;
-    }
-
-    #result-content em { color: var(--accent-violet-light); font-style: italic; }
-
-    #result-content ul, #result-content ol {
-      margin: 0 0 12px 20px;
-    }
-
-    #result-content li { margin-bottom: 4px; }
-
-    #result-content blockquote {
-      border-left: 3px solid var(--accent-violet);
-      padding: 8px 16px;
-      margin: 0 0 12px;
-      background: rgba(124,58,237,.08);
-      border-radius: 0 var(--radius) var(--radius) 0;
-      color: var(--text-secondary);
-      font-style: italic;
-    }
-
-    #result-content code {
-      background: var(--bg-card);
-      color: var(--accent-cyan);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      padding: 1px 5px;
-      border-radius: 4px;
-    }
-
-    #result-content pre {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 14px;
-      margin: 0 0 12px;
-      overflow-x: auto;
-    }
-
-    #result-content pre code {
-      background: none;
-      padding: 0;
-      color: var(--text-primary);
-    }
+    .btn-undo:hover:not(:disabled) { background: rgba(245,158,11,.2); }
 
     /* ─── Settings panel ─────────────────────────────── */
     #settings-overlay {
@@ -662,25 +552,19 @@
           </svg>
           Nouvelle note
         </button>
-        <button class="btn btn-secondary" id="toggle-pane-btn" style="display:none">
+        <button class="btn btn-undo" id="undo-btn" style="display:none" title="Revenir au brouillon (⌘Z)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/>
+            <polyline points="1 4 1 10 7 10"/>
+            <path d="M3.51 15a9 9 0 1 0 .49-3.33"/>
           </svg>
-          Vue double
+          Annuler l'IA
         </button>
         <div class="toolbar-spacer"></div>
         <div id="status-badge" class="status-badge"></div>
       </div>
 
       <div id="editor-area">
-        <div class="pane" id="input-pane">
-          <div class="pane-label">Brouillon — tapez vos notes ici</div>
-          <textarea id="notes-input" placeholder="Tapez vos notes de cours ici…&#10;&#10;Vous pouvez écrire librement, l'IA se chargera de tout organiser proprement.&#10;&#10;Exemples :&#10;- déf : photosynthèse = conversion lumière → énergie chimique&#10;- formule ATP&#10;- rappel : exam le 15"></textarea>
-        </div>
-        <div class="pane" id="result-pane">
-          <div class="pane-label">Résultat organisé par l'IA</div>
-          <div id="result-content"></div>
-        </div>
+        <textarea id="notes-input" placeholder="Tapez vos notes de cours ici…&#10;&#10;Écrivez librement, l'IA organisera tout.&#10;&#10;Ex :&#10;- déf : photosynthèse = lumière → énergie chimique&#10;- rappel : exam le 15"></textarea>
       </div>
     </main>
   </div>
